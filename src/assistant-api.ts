@@ -1,5 +1,12 @@
 import { isSource, nonempty, record, type Source } from './domain';
 export const statuses = ['answered', 'partial', 'insufficient_evidence', 'greeting', 'out_of_scope', 'rate_limited', 'unavailable', 'error'] as const;
+const allowedDomains = ['bocongan.gov.vn', 'chinhphu.vn', 'hatinh.gov.vn', 'laichau.gov.vn', 'vov.vn', 'tienphong.vn', 'baolaocai.vn', 'baovanhoa.vn', 'nhadautu.vn', 'daibieunhandan.vn', 'baomoi.com', 'luatvietnam.vn', 'lsvn.vn', 'baophapluat.vn', 'luatminhkhue.vn', 'thanhtra.com.vn', 'thuvienphapluat.vn'];
+function allowedSourceUrl(value: string) {
+  try {
+    const hostname = new URL(value).hostname;
+    return new URL(value).protocol === 'https:' && allowedDomains.some(domain => hostname === domain || hostname.endsWith(`.${domain}`));
+  } catch { return false; }
+}
 export type AnswerStatus = typeof statuses[number] | 'timeout' | 'offline';
 export interface Citation extends Source { id: string; passage?: string }
 export interface AssistantResponse {
@@ -45,7 +52,7 @@ export function parseResponse(value: unknown, config: AssistantConfig): Assistan
   for (const c of value.citations) {
     if (!record(c) || !isSource(c) || !nonempty(c.id) || !/^[a-zA-Z0-9_-]{1,40}$/.test(c.id) || ids.has(c.id)
       || (c.passage !== undefined && typeof c.passage !== 'string')
-      || !config.approvedSources.some(s => s.url === c.url && s.title === c.title)
+      || (!config.approvedSources.some(s => s.url === c.url && s.title === c.title) && !allowedSourceUrl(c.url))
       || !value.answer.includes(`[${c.id}]`)) return result('error');
     ids.add(c.id);
   }
