@@ -85,6 +85,15 @@ function relatedArticleSources(query: string, items: ArticleIndexRecord[]) {
   }));
 }
 
+function articleTitleMatches(query: string, title: string) {
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('vi');
+  const queryTerms = new Set(normalize(query).split(/[^a-z0-9]+/).filter(term => term.length > 2));
+  const titleTerms = new Set(normalize(title).split(/[^a-z0-9]+/).filter(term => term.length > 2));
+  if (!queryTerms.size || !titleTerms.size) return false;
+  const matched = [...titleTerms].filter(term => queryTerms.has(term)).length;
+  return matched / titleTerms.size >= 0.8;
+}
+
 type GroundedSearch = { answer: string; sources: { uri: string; title?: string }[] };
 async function groundedSources(message: string, apiKey: string): Promise<GroundedSearch | null> {
   try {
@@ -150,9 +159,21 @@ export default async function handler(request: Request): Promise<Response> {
   }
   const availableSources = await sources(request);
   const indexedArticles = await articleIndex(request);
+  const relatedArticles = relatedArticleSources(message, indexedArticles);
+  const exactArticle = relatedArticles.find(source => articleTitleMatches(message, source.title));
+  if (exactArticle) {
+    const citation = { ...exactArticle, id: 'S1' };
+    return Response.json({
+      status: 'partial',
+      answer: `Tôi tìm thấy bài viết từ ${exactArticle.publisher} có tiêu đề “${exactArticle.title}” [S1]. Điều này xác nhận nguồn báo chí đã đăng thông tin với tiêu đề này, nhưng kho dữ liệu hiện chỉ lưu tiêu đề và liên kết, chưa có toàn văn để khẳng định mọi chi tiết của sự kiện.`,
+      citations: [citation],
+      confidence: 60,
+      confidenceLabel: 'medium',
+      warning: 'Cẩn thận: Đây là xác nhận về bài đăng và tiêu đề của nguồn, không phải xác nhận độc lập toàn bộ sự kiện. Hãy mở bài gốc và đối chiếu nội dung trước khi chia sẻ.'
+    });
+  }
   const context = relevantSources(message, availableSources);
   if (!context.length) {
-    const relatedArticles = relatedArticleSources(message, indexedArticles);
     const related = [...relatedArticles, ...relatedSources(message, availableSources)].slice(0, maxSources);
     const grounded = await groundedSources(message, apiKey);
     if (grounded) {
