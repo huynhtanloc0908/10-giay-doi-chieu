@@ -1,7 +1,8 @@
 type Source = { title: string; url: string; publisher: string; passage: string; claims?: string[]; topics?: string[]; sourceType?: string; checkedAt?: string };
+type ArticleIndexRecord = Omit<Source, 'passage'>;
 const model = 'gemini-2.5-flash';
 const maxSources = 5;
-const allowedDomains = new Set(['bocongan.gov.vn', 'chinhphu.vn', 'hatinh.gov.vn', 'laichau.gov.vn', 'vov.vn', 'tienphong.vn', 'baolaocai.vn', 'baovanhoa.vn', 'nhadautu.vn', 'daibieunhandan.vn', 'baomoi.com', 'luatvietnam.vn', 'lsvn.vn', 'baophapluat.vn', 'luatminhkhue.vn', 'thanhtra.com.vn', 'thuvienphapluat.vn']);
+const allowedDomains = new Set(['bocongan.gov.vn', 'chinhphu.vn', 'hatinh.gov.vn', 'laichau.gov.vn', 'vov.vn', 'tienphong.vn', 'baolaocai.vn', 'baovanhoa.vn', 'nhadautu.vn', 'daibieunhandan.vn', 'baomoi.com', 'luatvietnam.vn', 'lsvn.vn', 'baophapluat.vn', 'luatminhkhue.vn', 'thanhtra.com.vn', 'thuvienphapluat.vn', 'baotintuc.vn', 'thanhnien.vn', 'tuoitre.vn', 'nhandan.vn', 'giaoducthoidai.vn', 'suckhoedoisong.vn', 'vietnamnet.vn', 'vnexpress.net', 'dantri.com.vn', 'tingia.gov.vn', 'moet.gov.vn', 'vnanet.vn']);
 const greetingPattern = /^(xin chào|chào|hello|hi|hey|alo|bạn ơi|yo)\b/i;
 function isAllowedUrl(value: string) {
   try {
@@ -39,6 +40,15 @@ async function sources(request: Request): Promise<Source[]> {
   } catch {
     return configured;
   }
+
+  async function articleIndex(request: Request): Promise<ArticleIndexRecord[]> {
+    try {
+      const response = await fetch(new URL('/data/articles.index.json', request.url), { cache: 'no-store' });
+      if (!response.ok) return [];
+      const data = await response.json() as { records?: ArticleIndexRecord[] };
+      return (data.records ?? []).filter(record => typeof record.title === 'string' && typeof record.url === 'string' && isAllowedUrl(record.url));
+    } catch { return []; }
+  }
 }
 
 function relevantSources(query: string, items: Source[]) {
@@ -59,6 +69,19 @@ function relatedSources(query: string, items: Source[]) {
     source,
     score: terms.filter(term => normalize(`${source.title} ${source.publisher}`).includes(term)).length
   })).sort((a, b) => b.score - a.score).slice(0, maxSources).map(item => item.source);
+}
+
+function relatedArticleSources(query: string, items: ArticleIndexRecord[]) {
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('vi');
+  const terms = normalize(query).split(/[^a-z0-9]+/).filter(term => term.length > 2);
+  return items.map(source => ({
+    source,
+    score: terms.filter(term => normalize(`${source.title} ${source.publisher}`).includes(term)).length
+  })).filter(item => item.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(item => ({
+    ...item.source,
+    passage: 'Đây là chỉ mục tiêu đề và liên kết, chưa phải nội dung bài viết đầy đủ. Hãy mở nguồn gốc để đọc và kiểm tra.',
+    sourceType: 'article_index'
+  }));
 }
 
 type GroundedSearch = { answer: string; sources: { uri: string; title?: string }[] };
@@ -125,9 +148,10 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
   const availableSources = await sources(request);
+  const indexedArticles = await articleIndex(request);
   const context = relevantSources(message, availableSources);
   if (!context.length) {
-    const related = relatedSources(message, availableSources);
+    const related = [...relatedSources(message, availableSources), ...relatedArticleSources(message, indexedArticles)].slice(0, maxSources);
     const grounded = await groundedSources(message, apiKey);
     if (grounded) {
       const answer = await answerFromGrounding(message, grounded, apiKey);

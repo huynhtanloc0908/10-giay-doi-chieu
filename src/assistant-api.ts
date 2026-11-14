@@ -1,6 +1,6 @@
 import { isSource, nonempty, record, type Source } from './domain';
 export const statuses = ['answered', 'partial', 'insufficient_evidence', 'greeting', 'out_of_scope', 'rate_limited', 'unavailable', 'error'] as const;
-const allowedDomains = ['bocongan.gov.vn', 'chinhphu.vn', 'hatinh.gov.vn', 'laichau.gov.vn', 'vov.vn', 'tienphong.vn', 'baolaocai.vn', 'baovanhoa.vn', 'nhadautu.vn', 'daibieunhandan.vn', 'baomoi.com', 'luatvietnam.vn', 'lsvn.vn', 'baophapluat.vn', 'luatminhkhue.vn', 'thanhtra.com.vn', 'thuvienphapluat.vn'];
+const allowedDomains = ['bocongan.gov.vn', 'chinhphu.vn', 'hatinh.gov.vn', 'laichau.gov.vn', 'vov.vn', 'tienphong.vn', 'baolaocai.vn', 'baovanhoa.vn', 'nhadautu.vn', 'daibieunhandan.vn', 'baomoi.com', 'luatvietnam.vn', 'lsvn.vn', 'baophapluat.vn', 'luatminhkhue.vn', 'thanhtra.com.vn', 'thuvienphapluat.vn', 'baotintuc.vn', 'thanhnien.vn', 'tuoitre.vn', 'nhandan.vn', 'giaoducthoidai.vn', 'suckhoedoisong.vn', 'vietnamnet.vn', 'vnexpress.net', 'dantri.com.vn', 'tingia.gov.vn', 'moet.gov.vn', 'vnanet.vn'];
 function allowedSourceUrl(value: string) {
   try {
     const hostname = new URL(value).hostname;
