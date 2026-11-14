@@ -41,14 +41,15 @@ async function sources(request: Request): Promise<Source[]> {
     return configured;
   }
 
-  async function articleIndex(request: Request): Promise<ArticleIndexRecord[]> {
-    try {
-      const response = await fetch(new URL('/data/articles.index.json', request.url), { cache: 'no-store' });
-      if (!response.ok) return [];
-      const data = await response.json() as { records?: ArticleIndexRecord[] };
-      return (data.records ?? []).filter(record => typeof record.title === 'string' && typeof record.url === 'string' && isAllowedUrl(record.url));
-    } catch { return []; }
-  }
+}
+
+async function articleIndex(request: Request): Promise<ArticleIndexRecord[]> {
+  try {
+    const response = await fetch(new URL('/data/articles.index.json', request.url), { cache: 'no-store' });
+    if (!response.ok) return [];
+    const data = await response.json() as { records?: ArticleIndexRecord[] };
+    return (data.records ?? []).filter(record => typeof record.title === 'string' && typeof record.url === 'string' && isAllowedUrl(record.url));
+  } catch { return []; }
 }
 
 function relevantSources(query: string, items: Source[]) {
