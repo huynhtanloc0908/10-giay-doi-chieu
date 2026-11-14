@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "endpoint": "/api/assistant",
-  "verifiedFreeThrough": "2026-11-09",
+  "verifiedFreeThrough": "2026-12-31",
   "approvedSources": [
     {
       "title": "Luật An ninh mạng 2025 số 116/2025/QH15 – Toàn văn",
