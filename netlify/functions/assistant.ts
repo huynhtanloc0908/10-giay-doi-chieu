@@ -69,7 +69,7 @@ function relatedSources(query: string, items: Source[]) {
   return items.map(source => ({
     source,
     score: terms.filter(term => normalize(`${source.title} ${source.publisher}`).includes(term)).length
-  })).sort((a, b) => b.score - a.score).slice(0, maxSources).map(item => item.source);
+  })).filter(item => item.score > 0).sort((a, b) => b.score - a.score).slice(0, maxSources).map(item => item.source);
 }
 
 function relatedArticleSources(query: string, items: ArticleIndexRecord[]) {
@@ -152,7 +152,8 @@ export default async function handler(request: Request): Promise<Response> {
   const indexedArticles = await articleIndex(request);
   const context = relevantSources(message, availableSources);
   if (!context.length) {
-    const related = [...relatedSources(message, availableSources), ...relatedArticleSources(message, indexedArticles)].slice(0, maxSources);
+    const relatedArticles = relatedArticleSources(message, indexedArticles);
+    const related = [...relatedArticles, ...relatedSources(message, availableSources)].slice(0, maxSources);
     const grounded = await groundedSources(message, apiKey);
     if (grounded) {
       const answer = await answerFromGrounding(message, grounded, apiKey);
@@ -162,6 +163,16 @@ export default async function handler(request: Request): Promise<Response> {
       });
     }
     const citations = related.map((source, index) => ({ ...source, id: `S${index + 1}` }));
+    if (relatedArticles.length) {
+      return Response.json({
+        status: 'partial',
+        answer: `Tôi tìm thấy bài viết từ ${relatedArticles[0].publisher} có tiêu đề “${relatedArticles[0].title}” [S1]. Điều này xác nhận nguồn báo chí đã đăng thông tin với tiêu đề này, nhưng kho dữ liệu hiện chỉ lưu tiêu đề và liên kết, chưa có toàn văn để khẳng định mọi chi tiết của sự kiện.`,
+        citations,
+        confidence: 60,
+        confidenceLabel: 'medium',
+        warning: 'Cẩn thận: Đây là xác nhận về bài đăng và tiêu đề của nguồn, không phải xác nhận độc lập toàn bộ sự kiện. Hãy mở bài gốc và đối chiếu nội dung trước khi chia sẻ.'
+      });
+    }
     return Response.json({
       status: 'insufficient_evidence',
       answer: citations.length
