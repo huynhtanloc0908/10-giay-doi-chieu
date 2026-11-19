@@ -50,6 +50,7 @@ end $$;
 
 alter table public.quiz_attempts enable row level security;
 
+drop policy if exists "Authenticated users can insert quiz results" on public.quiz_attempts;
 create policy "Authenticated users can insert quiz results"
   on public.quiz_attempts for insert
   to authenticated
